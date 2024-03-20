@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Simple Chat</title>
+    <meta charset="UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.1.4/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        .chatMessage-bubble {
+            display: inline-block;
+            background-color: #f2f2f2;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .user-id {
+            font-weight: bold;
+        }
+
+        .leave-button {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: none;
+            background-color: red;
+            color: #fff;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .leave-button:hover {
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+<input id="chatId" type="hidden" th:value="${chatUsers.getChat().getId()}">
+<input id="userId" type="hidden" th:value="${chatUsers.getUser().getId()}">
+
+<div>
+    <button class="leave-button" onclick="window.location.href='/'">Leave</button>
+</div>
+
+<div id="chatting" style="display: block">
+    <span th:each="chatMessage : ${chatMessages}">
+        <span class="chatMessage-bubble">
+            <span class="user-id" th:text="'@' + ${chatMessage.getChatUsers().getUser().getId()}"></span>
+        </span>
+        <span th:text="': ' + ${chatMessage.getContent()}"></span>
+        <br>
+    </span>
+</div>
+
+<label for="messageInput"></label>
+<input id="messageInput" type="text">
+<button onclick="sendMessage()">Send</button>
+
+<script>
+    const chatId = document.getElementById("chatId").value
+    const userId = document.getElementById("userId").value
+
+    document.getElementById("messageInput").addEventListener("keypress", event => {
+        if (event.key === "Enter") {
+            event.preventDefault()
+            sendMessage()
+        }
+    })
+
+    const sendMessage = () => {
+        const messageInput = document.getElementById("messageInput")
+        if (!messageInput.value?.length) return
+
+        stompClient.send(`/api/v1/chat/${chatId}/messages`, {}, JSON.stringify({
+            "userId": userId,
+            "content": messageInput.value
+        }))
+        messageInput.value = ""
+    }
+
+    const showMessage = (userId, chatMessage) => {
+        const messageDiv = document.createElement('div')
+
+        const userIdSpan = document.createElement('span')
+        userIdSpan.className = 'user-id'
+        userIdSpan.innerText = `@${userId}`
+
+        const messageSpan = document.createElement('span')
+        messageSpan.innerText = `: ${chatMessage}`
+
+        const messageBubbleSpan = document.createElement('span')
+        messageBubbleSpan.className = 'chatMessage-bubble'
+
+        messageBubbleSpan.appendChild(userIdSpan)
+
+        messageDiv.appendChild(messageBubbleSpan)
+        messageDiv.appendChild(messageSpan)
+
+        const chatting = document.getElementById("chatting")
+        chatting.appendChild(messageDiv)
+    }
+
+    const socket = new SockJS("/ws")
+    const stompClient = Stomp.over(socket)
+    stompClient.connect({}, () => {
+        stompClient.subscribe(`/topic/chat/${chatId}/messages`, chatMessage => {
+            const response = JSON.parse(chatMessage.body)
+            showMessage(response.userId, response.content)
+        })
+    })
+</script>
+</body>
+
+</html>
