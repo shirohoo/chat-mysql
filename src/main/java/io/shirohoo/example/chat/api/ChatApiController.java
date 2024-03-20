@@ -21,20 +21,20 @@ class ChatApiController {
 
     @PostMapping("/api/v1/chat")
     Map<String, String> createChat(@RequestBody CreateChatRequest request) {
-        var chat = chatService.createChat(UUID.fromString(request.hostId), request.topic, request.password);
+        var chat = chatService.createChat(request.hostId, request.topic, request.password);
 
         return Map.of("chatId", chat.getId().toString());
     }
 
-    private record CreateChatRequest(String hostId, String topic, String password) {}
+    private record CreateChatRequest(UUID hostId, String topic, String password) {}
 
     @SendTo("/topic/chat/{chatId}/messages")
     @MessageMapping("/api/v1/chat/{chatId}/messages")
-    ChatMessage send(@DestinationVariable String chatId, @RequestBody ChatMessage chatMessage) {
-        chatService.sendMessage(UUID.fromString(chatId), UUID.fromString(chatMessage.userId()), chatMessage.content());
+    ChatMessage send(@DestinationVariable UUID chatId, @RequestBody ChatMessage chatMessage) {
+        chatService.sendMessage(chatId, chatMessage.userId(), chatMessage.content());
 
         return chatMessage;
     }
 
-    private record ChatMessage(String userId, String content) {}
+    private record ChatMessage(UUID userId, String content) {}
 }
